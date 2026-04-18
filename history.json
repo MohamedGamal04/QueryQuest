@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "{\n    \"sql_statements\": [],\n    \"explanation\": \"No query provided. Please provide a natural language request to generate a SQL statement.\"\n}"
+  }
+]

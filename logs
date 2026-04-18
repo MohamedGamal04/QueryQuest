@@ -1,0 +1,7 @@
+{"timestamp": "2026-04-18T21:21:21.293254+00:00", "event": "history_reset_on_new_chat", "provider": "groq", "model": "llama-3.3-70b-versatile"}
+{"timestamp": "2026-04-18T21:21:22.046453+00:00", "event": "llm_success", "provider": "groq", "model": "llama-3.3-70b-versatile", "input": "hi", "output": "{\n    \"sql_statements\": [],\n    \"explanation\": \"Hello, I'm ready to assist you with your SQL queries. What would you like to do?\"\n}"}
+{"timestamp": "2026-04-18T21:21:32.836331+00:00", "event": "llm_success", "provider": "groq", "model": "llama-3.3-70b-versatile", "input": "give me the most expensive car", "output": "{\n    \"sql_statements\": [\"SELECT * FROM cars ORDER BY price DESC LIMIT 1\"],\n    \"explanation\": \"This query will retrieve the most expensive car from the 'cars' table, ordered by price in descending order and limited to one result.\"\n}"}
+{"timestamp": "2026-04-18T21:21:42.152058+00:00", "event": "quit", "provider": "groq", "model": "llama-3.3-70b-versatile"}
+{"timestamp": "2026-04-18T21:22:23.090398+00:00", "event": "history_reset_on_new_chat", "provider": "groq", "model": "llama-3.3-70b-versatile"}
+{"timestamp": "2026-04-18T21:22:23.705523+00:00", "event": "llm_success", "provider": "groq", "model": "llama-3.3-70b-versatile", "input": "hi", "output": "{\n    \"sql_statements\": [],\n    \"explanation\": \"No query provided. Please provide a natural language request to generate a SQL statement.\"\n}"}
+{"timestamp": "2026-04-18T21:22:28.595224+00:00", "event": "quit", "provider": "groq", "model": "llama-3.3-70b-versatile"}

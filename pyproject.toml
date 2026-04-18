@@ -1,0 +1,35 @@
+[project]
+name = "excelagent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "duckdb>=1.5.2",
+    "google-generativeai>=0.8.6",
+    "ollama>=0.6.1",
+    "openai>=2.32.0",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.2",
+    "pydantic>=2.13.2",
+    "rich>=14.1.0",
+]
+
+[project.scripts]
+queryquest = "main:main"
+qq = "main:main"
+QQ = "main:main"
+
+[tool.setuptools]
+py-modules = [
+    "app_config",
+    "chat_session",
+    "cli",
+    "logger",
+    "main",
+    "provider_setup",
+    "setup_flow",
+    "sql_handoff",
+    "state",
+]
