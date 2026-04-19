@@ -63,20 +63,39 @@ def _normalize_sql_statement(statement: str) -> str:
 	return statement.replace("`", '"')
 
 
+def _normalize_single_quoted_table_identifiers(statement: str, table_identifiers: set[str]) -> str:
+	"""Convert single-quoted table identifiers to double-quoted in table contexts.
+
+	LLM output sometimes uses single quotes for table names, e.g.
+	FROM 'Real Estate Listings'. DuckDB expects identifier quoting with
+	double quotes, so rewrite only known table names after table keywords.
+	"""
+
+	def _replace(match: re.Match[str]) -> str:
+		keyword = match.group(1)
+		identifier = match.group(2)
+		if identifier in table_identifiers:
+			return f'{keyword} "{identifier}"'
+		return match.group(0)
+
+	pattern = re.compile(r"\b(from|join|update|into|table)\s+'([^']+)'", flags=re.IGNORECASE)
+	return pattern.sub(_replace, statement)
+
+
 def _quote_known_identifiers(statement: str, identifiers: set[str]) -> str:
 	"""Quote known identifiers with spaces so DuckDB parses them correctly."""
 	rewritten = statement
 	for identifier in sorted(identifiers, key=len, reverse=True):
 		if not identifier or " " not in identifier:
 			continue
-		pattern = re.compile(rf'(?<!")({re.escape(identifier)})(?!")')
+		pattern = re.compile(rf'(?<!["\'])({re.escape(identifier)})(?!["\'])')
 		rewritten = pattern.sub(r'"\1"', rewritten)
 	return rewritten
 
 
 def _strip_identifier_quotes(identifier: str) -> str:
 	cleaned = identifier.strip()
-	if cleaned[:1] in {'`', '"', '['} and cleaned[-1:] in {'`', '"', ']'}:
+	if cleaned[:1] in {'`', '"', "'", '['} and cleaned[-1:] in {'`', '"', "'", ']'}:
 		return cleaned[1:-1]
 	return cleaned
 
@@ -184,6 +203,7 @@ def execute_sql_statements(sql_statements: list[str], console: Console | None = 
 	wrote_data = False
 	for statement in sql_statements:
 		normalized_statement = _normalize_sql_statement(statement)
+		normalized_statement = _normalize_single_quoted_table_identifiers(normalized_statement, table_identifiers)
 		normalized_statement = _quote_known_identifiers(normalized_statement, table_identifiers)
 		normalized_statement = _quote_known_identifiers(normalized_statement, column_identifiers)
 		cursor = connection.execute(normalized_statement)
