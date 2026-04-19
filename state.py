@@ -1,7 +1,7 @@
 import json
 import os
 
-from app_config import HISTORY_FILE, PROVIDERS_BY_NAME, STATE_FILE
+from app_config import PROVIDERS_BY_NAME, STATE_FILE
 
 
 def find_env_api_key(env_names: tuple[str, ...]) -> str | None:
@@ -29,11 +29,43 @@ def load_state() -> dict[str, str] | None:
         return None
     if not isinstance(model, str) or not model:
         return None
-    return {"provider": provider_name, "api_key": api_key, "model": model}
+    state: dict[str, str] = {"provider": provider_name, "api_key": api_key, "model": model}
+
+    excel_dir = data.get("excel_dir")
+    excel_signature = data.get("excel_signature")
+    excel_info = data.get("excel_info")
+    excel_info_format_version = data.get("excel_info_format_version")
+    if isinstance(excel_dir, str) and excel_dir:
+        state["excel_dir"] = excel_dir
+    if isinstance(excel_signature, str) and excel_signature:
+        state["excel_signature"] = excel_signature
+    if isinstance(excel_info, str) and excel_info:
+        state["excel_info"] = excel_info
+    if isinstance(excel_info_format_version, str) and excel_info_format_version:
+        state["excel_info_format_version"] = excel_info_format_version
+
+    return state
 
 
-def save_state(provider_name: str, api_key: str, model: str) -> None:
-    payload = {"provider": provider_name, "api_key": api_key, "model": model}
+def save_state(
+    provider_name: str,
+    api_key: str,
+    model: str,
+    *,
+    excel_dir: str | None = None,
+    excel_signature: str | None = None,
+    excel_info: str | None = None,
+    excel_info_format_version: str | None = None,
+) -> None:
+    payload: dict[str, str] = {"provider": provider_name, "api_key": api_key, "model": model}
+    if excel_dir:
+        payload["excel_dir"] = excel_dir
+    if excel_signature:
+        payload["excel_signature"] = excel_signature
+    if excel_info:
+        payload["excel_info"] = excel_info
+    if excel_info_format_version:
+        payload["excel_info_format_version"] = excel_info_format_version
     STATE_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     try:
         os.chmod(STATE_FILE, 0o600)
@@ -42,35 +74,3 @@ def save_state(provider_name: str, api_key: str, model: str) -> None:
         pass
 
 
-def load_history() -> list[dict[str, str]]:
-    if not HISTORY_FILE.exists():
-        return []
-    try:
-        data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []
-
-    if not isinstance(data, list):
-        return []
-
-    history: list[dict[str, str]] = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        role = item.get("role")
-        content = item.get("content")
-        if role in ("user", "assistant") and isinstance(content, str):
-            history.append({"role": role, "content": content})
-    return history
-
-
-def save_history(history: list[dict[str, str]]) -> None:
-    try:
-        HISTORY_FILE.write_text(json.dumps(history, indent=2), encoding="utf-8")
-    except OSError:
-        # History persistence should not break the interactive session.
-        pass
-
-
-def reset_history() -> None:
-    save_history([])

@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-
 @dataclass(frozen=True)
 class ProviderConfig:
     name: str
@@ -47,10 +46,11 @@ PROVIDERS_BY_NAME = {config.name: config for config in PROVIDERS.values()}
 
 ROOT_DIR = Path(__file__).resolve().parents[0]
 STATE_FILE = Path(__file__).with_name(".provider.json")
+Excel_DIR = ROOT_DIR / "excel_files"
 LOG_FILE = ROOT_DIR / "logs"
-HISTORY_FILE = ROOT_DIR / "history.json"
 TEMP_SQL_FILE = ROOT_DIR / "temporary_sql_input.json"
-TEMP_SCRIPT = ROOT_DIR / "temporary_sql_runner.py"
+SQL_SCRIPT = ROOT_DIR / "TEMP.py"
+EXCEL_INFO_FORMAT_VERSION = "2"
 
 SYSTEM_PROMPT = """### ROLE
 You are QueryQuest, a precise Data Engineering Assistant. Your goal is to translate natural language requests into executable SQL statements that run on tabular data via DuckDB.
@@ -66,6 +66,7 @@ You are QueryQuest, a precise Data Engineering Assistant. Your goal is to transl
 2. **Dialect**: Use standard DuckDB/PostgreSQL SQL syntax.
 3. **Joins**: If a request requires data from both tables, use a JOIN on relevant keys (e.g., location or dates).
 4. **Safety**: Do not perform any DROP TABLE or TRUNCATE operations.
+5. **File Availability**: Only use data from the current Excel file context. If a requested file or table is missing, removed, or unavailable, say so explicitly instead of inventing results.
 
 ### OUTPUT FORMAT
 You MUST respond with a valid JSON object ONLY.

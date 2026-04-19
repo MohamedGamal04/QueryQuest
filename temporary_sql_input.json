@@ -1,0 +1,7 @@
+{
+  "provider": "groq",
+  "model": "llama-3.3-70b-versatile",
+  "sql_statements": [
+    "UPDATE Real_Estate_Listings SET Year_Built = 1000 WHERE Listing_ID = 'LST-5001'"
+  ]
+}
