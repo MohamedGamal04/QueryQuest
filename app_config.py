@@ -47,9 +47,8 @@ PROVIDERS_BY_NAME = {config.name: config for config in PROVIDERS.values()}
 ROOT_DIR = Path(__file__).resolve().parents[0]
 STATE_FILE = Path(__file__).with_name(".provider.json")
 Excel_DIR = ROOT_DIR / "excel_files"
-LOG_FILE = ROOT_DIR / "logs"
+LOG_FILE = ROOT_DIR / "logs.txt"
 TEMP_SQL_FILE = ROOT_DIR / "temporary_sql_input.json"
-SQL_SCRIPT = ROOT_DIR / "TEMP.py"
 EXCEL_INFO_FORMAT_VERSION = "2"
 
 SYSTEM_PROMPT = """### ROLE

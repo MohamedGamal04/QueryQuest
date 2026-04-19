@@ -4,5 +4,5 @@ __pycache__/
 .env
 .provider.json
 history.json
-logs
+logs.txt
 .venv/
