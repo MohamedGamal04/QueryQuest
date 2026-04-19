@@ -1,5 +1,0 @@
-{
-  "provider": "nvidia",
-  "api_key": "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",
-  "model": "meta/llama-3.1-70b-instruct"
-}

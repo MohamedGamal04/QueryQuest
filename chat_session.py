@@ -75,7 +75,7 @@ def run_chat_session(
                 default="n",
                 console=console,
             ).strip()
-            if execute_choice == "y":
+            if execute_choice.lower() == "y" or execute_choice.lower() == "yes":
                 sql_statements = extract_sql_statements(output)
                 if not sql_statements:
                     console.print("No valid sql_statements found in model response JSON.")

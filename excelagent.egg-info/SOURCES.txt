@@ -4,7 +4,6 @@ chat_session.py
 cli.py
 logger.py
 main.py
-provider_setup.py
 pyproject.toml
 setup_flow.py
 sql_handoff.py

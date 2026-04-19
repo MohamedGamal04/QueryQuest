@@ -2,7 +2,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .env
-.provider_setup.json
+.provider.json
 history.json
 logs
 .venv/

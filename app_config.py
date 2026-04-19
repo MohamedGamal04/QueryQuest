@@ -45,8 +45,8 @@ PROVIDERS = {
 
 PROVIDERS_BY_NAME = {config.name: config for config in PROVIDERS.values()}
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-STATE_FILE = Path(__file__).with_name(".provider_setup.json")
+ROOT_DIR = Path(__file__).resolve().parents[0]
+STATE_FILE = Path(__file__).with_name(".provider.json")
 LOG_FILE = ROOT_DIR / "logs"
 HISTORY_FILE = ROOT_DIR / "history.json"
 TEMP_SQL_FILE = ROOT_DIR / "temporary_sql_input.json"
