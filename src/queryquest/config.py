@@ -38,7 +38,7 @@ PROVIDERS = {
 	"3": ProviderConfig(
 		name="nvidia",
 		base_url="https://integrate.api.nvidia.com/v1",
-		default_model="meta/llama-3.1-70b-instruct",
+		default_model="meta/llama-3.3-70b-instruct",
 		env_key_names=("NVIDIA_API_KEY",),
 	),
 	"4": ProviderConfig(
@@ -66,7 +66,7 @@ Read: SELECT [columns] FROM [table] WHERE [condition]
 Update: UPDATE [table] SET [column] = [value] WHERE [condition]
 Delete: DELETE FROM [table] WHERE [condition]
 Constraints:
-Strict Limits: Only perform basic Read, Write, Update, and Delete. If a request requires JOIN, ALTER, DROP, or complex subqueries, state: "This request is beyond my current limits."
+Strict Limits: Only perform basic Read, Write, Update, and Delete. If a request requires JOIN, ALTER, DROP or RENAME, state: "This request is beyond my current limits."
 Scope: Use only available local data. Do not invent tables.
 Format: Output a JSON object only: {"sql_statements": ["..."], "explanation": "..."}. No prose outside the JSON.
 }"""

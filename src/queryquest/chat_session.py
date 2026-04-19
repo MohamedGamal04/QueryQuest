@@ -93,12 +93,13 @@ def run_chat_session(
 
 		try:
 			system_prompt = system_prompt_provider()
+			excel_file_count = excel_file_count_provider()
 			request_messages: list[ChatCompletionMessageParam] = [
 				{"role": "system", "content": system_prompt},
 				{"role": "user", "content": prompt},
 			]
 
-			if excel_file_count_provider() == 0:
+			if excel_file_count == 0:
 				# Return a deterministic JSON response when no data source exists.
 				output = json.dumps(
 					{
@@ -111,9 +112,10 @@ def run_chat_session(
 						"event": "llm_skipped_no_files",
 						"provider": provider_name,
 						"model": model_name,
-						"input": prompt,
-						"input_system_prompt": system_prompt,
+						"input_chars": len(prompt),
+						"system_prompt_chars": len(system_prompt),
 						"input_messages": request_messages,
+						"excel_file_count": excel_file_count,
 					}
 				)
 			else:
@@ -124,7 +126,7 @@ def run_chat_session(
 				output = response.choices[0].message.content or ""
 
 			sql_statements = extract_sql_statements(output)
-			if excel_file_count_provider() == 0 and sql_statements:
+			if excel_file_count == 0 and sql_statements:
 				# Hard guard: never allow SQL suggestions when no Excel files are currently available.
 				output = json.dumps(
 					{
@@ -139,10 +141,12 @@ def run_chat_session(
 					"event": "llm_success",
 					"provider": provider_name,
 					"model": model_name,
-					"input": prompt,
-					"input_system_prompt": system_prompt,
+					"input_chars": len(prompt),
+					"system_prompt_chars": len(system_prompt),
 					"input_messages": request_messages,
-					"output": output,
+					"output_chars": len(output),
+					"sql_statement_count": len(sql_statements),
+					"excel_file_count": excel_file_count,
 				}
 			)
 			_print_llm_response(console, output, provider_name, model_name)

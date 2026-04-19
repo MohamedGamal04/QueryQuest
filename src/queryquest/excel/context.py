@@ -38,24 +38,19 @@ def read_excel_file(file_path: Path) -> pd.ExcelFile:
 
 
 def get_col_info(df: pd.DataFrame) -> str:
-	"""Build compact schema and numeric summary metadata for a DataFrame."""
+	"""Build compact schema metadata for a DataFrame."""
 	col_types = df.dtypes
-	numeric_cols = df.select_dtypes(include="number")
-	col_max = numeric_cols.max().to_dict() if not numeric_cols.empty else {}
-	col_min = numeric_cols.min().to_dict() if not numeric_cols.empty else {}
 	rows = len(df)
 	cols = len(df.columns)
 	info = "\n".join([f"{col}: {dtype}" for col, dtype in col_types.items()])
 	if not info:
 		info = "No columns found"
 	info += f"\nColumns: {cols}"
-	info += f"\nMax values: {col_max}"
-	info += f"\nMin values: {col_min}"
 	info += f"\nRows: {rows}"
 	return info
 
 
-def get_sample_rows(df: pd.DataFrame, sample_size: int = 3) -> str:
+def get_sample_rows(df: pd.DataFrame, sample_size: int = 1) -> str:
 	"""Return a small human-readable table preview used in LLM context text."""
 	if df.empty:
 		return "Sample rows: No rows found"

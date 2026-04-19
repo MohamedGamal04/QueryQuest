@@ -224,6 +224,83 @@ def _extract_target_table_name(statement: str) -> str | None:
     return None
 
 
+def _extract_delete_table_name(statement: str) -> str | None:
+    """Extract target table name from a DELETE statement when possible."""
+    match = re.match(
+        r'^\s*delete\s+from\s+("[^"]+"|\[[^\]]+\]|`[^`]+`|\'[^\']+\'|[A-Za-z_][A-Za-z0-9_]*)',
+        statement,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return _strip_identifier_quotes(match.group(1))
+
+
+def _delete_statement_to_scope_query(statement: str) -> str | None:
+    """Convert a DELETE statement into an equivalent SELECT scope query."""
+    scope_query = re.sub(
+        r"^\s*delete\s+from\s+",
+        "SELECT * FROM ",
+        statement.strip().rstrip(";"),
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    if scope_query.lower().startswith("select * from "):
+        return scope_query
+    return None
+
+
+def _print_delete_before_after_preview(
+    connection: duckdb.DuckDBPyConnection,
+    prepared_statement: str,
+    console: Console,
+) -> None:
+    """Show rows targeted by DELETE before execution and remaining rows after execution."""
+    scope_query = _delete_statement_to_scope_query(prepared_statement)
+    if scope_query is None:
+        return
+
+    table_name = _extract_delete_table_name(prepared_statement) or "target_table"
+    limited_scope_query = f"SELECT * FROM ({scope_query}) AS delete_scope_preview LIMIT 20"
+
+    try:
+        before_count_row = connection.execute(
+            f"SELECT COUNT(*) FROM ({scope_query}) AS delete_scope"
+        ).fetchone()
+        before_count = int(before_count_row[0]) if before_count_row is not None else 0
+        before_df = connection.execute(
+            limited_scope_query
+        ).df()
+        console.print(f"[yellow]DELETE preview before:[/yellow] {before_count} row(s) match the filter.")
+
+        if before_count == 0:
+            console.print("[yellow]DELETE skipped:[/yellow] no rows matched the filter.")
+            return
+
+        print_dataframe_as_table(before_df, console, title=f"Rows to delete ({table_name})")
+    except Exception as error:
+        console.print(f"[yellow]DELETE preview skipped:[/yellow] {error}")
+        _execute_statement_safely(connection, prepared_statement, console)
+        return
+
+    cursor = _execute_statement_safely(connection, prepared_statement, console)
+    if cursor is None:
+        return
+
+    try:
+        after_count_row = connection.execute(
+            f"SELECT COUNT(*) FROM ({scope_query}) AS remaining_scope"
+        ).fetchone()
+        after_count = int(after_count_row[0]) if after_count_row is not None else 0
+        after_df = connection.execute(
+            limited_scope_query
+        ).df()
+        console.print(f"[green]DELETE preview after:[/green] {after_count} row(s) still match the filter.")
+        print_dataframe_as_table(after_df, console, title=f"Rows remaining after delete ({table_name})")
+    except Exception as error:
+        console.print(f"[yellow]Could not render DELETE preview after execution:[/yellow] {error}")
+
+
 def _save_dataframe_to_workbook(file_path: Path, first_sheet_name: str, sheet_data: dict[str, pd.DataFrame], df: pd.DataFrame) -> None:
     """Rewrite workbook sheets, replacing only the first sheet content."""
     with pd.ExcelWriter(file_path, engine="openpyxl", mode="w") as writer:
@@ -370,6 +447,12 @@ def execute_sql_statements(sql_statements: list[str], console: Console | None = 
         wrote_data = False
         for statement in sql_statements:
             prepared_statement = _prepare_statement(statement, rewrite_context)
+
+            if statement.lstrip().lower().startswith("delete"):
+                _print_delete_before_after_preview(connection, prepared_statement, active_console)
+                wrote_data = True
+                continue
+
             cursor = _execute_statement_safely(connection, prepared_statement, active_console)
             if cursor is None:
                 continue
