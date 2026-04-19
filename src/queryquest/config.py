@@ -53,7 +53,7 @@ PROVIDERS_BY_NAME = {config.name: config for config in PROVIDERS.values()}
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 STATE_FILE = ROOT_DIR / ".provider.json"
-Excel_DIR = ROOT_DIR / "excel_files"
+EXCEL_DIR = ROOT_DIR / "excel_files"
 LOG_FILE = ROOT_DIR / "logs.txt"
 TEMP_SQL_FILE = ROOT_DIR / "temporary_sql_input.json"
 EXCEL_INFO_FORMAT_VERSION = "2"

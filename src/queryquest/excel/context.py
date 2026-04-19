@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..config import Excel_DIR
+from ..config import EXCEL_DIR
 
 SUPPORTED_SUFFIXES = {".xlsx", ".xls"}
 
 
 def normalize_excel_dir(excel_dir: str | Path | None = None) -> Path:
 	"""Normalize Excel directory input into an absolute resolved path."""
-	path = Path(excel_dir) if excel_dir is not None else Excel_DIR
+	path = Path(excel_dir) if excel_dir is not None else EXCEL_DIR
 	return path.expanduser().resolve()
 
 
