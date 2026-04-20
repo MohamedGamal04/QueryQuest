@@ -2,6 +2,7 @@
 
 import json
 import re
+from pathlib import Path
 
 from rich.console import Console
 
@@ -95,7 +96,13 @@ def extract_sql_statements(output: str) -> list[str]:
 	return []
 
 
-def expose_sql_statements(sql_statements: list[str], provider: str, model: str, console: Console) -> None:
+def expose_sql_statements(
+	sql_statements: list[str],
+	provider: str,
+	model: str,
+	console: Console,
+	excel_dir: str | Path | None = None,
+) -> None:
 	"""Execute extracted SQL statements and append execution metadata to logs."""
 	payload = {
 		"provider": provider,
@@ -103,7 +110,7 @@ def expose_sql_statements(sql_statements: list[str], provider: str, model: str, 
 		"sql_statements": sql_statements,
 	}
 	console.print("Executing SQL statements inside CLI session...")
-	execute_sql_statements(sql_statements, console=console)
+	execute_sql_statements(sql_statements, console=console, excel_dir=excel_dir)
 	append_log(
 		{
 			"event": "sql_executed_in_cli",

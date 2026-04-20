@@ -154,6 +154,7 @@ def main() -> None:
 		initial_prompt=prompt,
 		system_prompt_provider=get_system_prompt,
 		excel_file_count_provider=lambda: len(list_excel_files(excel_dir)),
+		excel_dir=excel_dir,
 	)
 
 

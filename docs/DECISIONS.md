@@ -1,37 +1,51 @@
 # DECISIONS
 
 ## Architecture
-- Used a CLI-first architecture because the task emphasizes practical natural-language querying over spreadsheets.
-- Chose a modular `src/queryquest` package structure to separate concerns: CLI, setup/state, chat orchestration, Excel context, and SQL execution.
-- Implemented a custom tool layer end-to-end (no LangChain/LlamaIndex/AutoGen/CrewAI), in line with task constraints.
-- Used DuckDB as the query engine over pandas DataFrames registered from Excel files for fast local SQL execution.
+- Adopted a CLI-first architecture focused on practical natural-language querying over local Excel files.
+- Kept a modular package layout under `src/queryquest` to separate concerns across CLI parsing, setup/state, chat orchestration, Excel context, and SQL execution.
+- Implemented a custom orchestration flow end-to-end (no LangChain/LlamaIndex/AutoGen/CrewAI).
+- Used DuckDB over pandas DataFrames for local SQL execution performance and simple write-back behavior.
 
 ## LLM integration
-- Used OpenAI-compatible chat completions to support multiple free/local providers behind a consistent interface.
-- Added interactive setup for provider/model/API key selection and persisted state in `.provider.json`.
-- Kept provider configuration centralized in `config.py` for easier provider/model changes.
+- Standardized on OpenAI-compatible chat completions so providers can be swapped behind one client interface.
+- Added interactive setup for provider/model/API key, then persisted configuration in `.provider.json`.
+- Centralized provider defaults and system prompt policy in `config.py`.
+
+## SQL policy and safety
+- Enforced an explicit allowlist in executor runtime checks: only `SELECT`, `INSERT`, `UPDATE`, `DELETE` are accepted.
+- Explicitly reject `JOIN` and schema-changing/admin commands by policy.
+- Reject multi-statement SQL payloads in a single statement string.
+- Keep the allowlist as the hard guard; prompt instructions are advisory and not trusted alone.
 
 ## Excel handling
-- Built Excel context tooling to summarize sheets, dtypes, min/max, row counts, and sample rows for the system prompt.
-- Registered both original and normalized table names to make model-generated SQL more resilient to spaces/special characters.
-- Preserved write-back support for DML with explicit user confirmation before saving changes to workbook files.
-- Added table previews for SQL statements and query results, including bounded JOIN previews.
+- Build prompt context from workbook metadata and sample rows to guide SQL generation.
+- Normalize filenames and column names so model SQL can be rewritten to real DuckDB identifiers.
+- Register compatibility views for original workbook names to tolerate spaced/raw names in model output.
+- Use the selected runtime Excel directory for both prompt context and SQL execution to avoid path drift.
+- Keep write-back support for DML with explicit confirmation before persisting changes to workbook files.
+
+## CLI UX decisions
+- Render SQL statements in a preview table before execution.
+- For `DELETE`, show an affected-row precheck and preview of rows to be deleted.
+- Removed post-delete "after" preview output to keep interaction concise.
 
 ## Tradeoffs
-- The current execution flow uses the first sheet of each workbook as the active SQL table and write-back target.
-- SQL extraction depends on model output structure; robustness is improved by parsing fenced and embedded JSON, but fully malformed responses still fail safely.
-- The executor is intentionally centralized in one module for delivery speed, at the cost of larger function scope.
-- Interactive CLI UX is prioritized over API/server deployment for this task.
+- Only the first sheet of each workbook is used as the active SQL table and write-back target.
+- SQL extraction is robust against fenced/embedded JSON, but fully malformed model outputs are skipped safely.
+- The executor remains intentionally centralized for delivery speed, trading off smaller component boundaries.
+- Prioritized interactive CLI behavior over API/server deployment.
 
 ## Testing
-- Added baseline unit tests using `unittest` (no extra test framework dependency):
-	- `tests/test_cli.py`
-	- `tests/test_sql_handoff.py`
-	- `tests/test_state.py`
-- Test focus is core reliability: argument handling, SQL JSON extraction resilience, and persisted state behavior.
+- Baseline unit tests use `unittest` only:
+- `tests/test_cli.py`
+- `tests/test_sql_executor.py`
+- `tests/test_sql_handoff.py`
+- `tests/test_sql_preview.py`
+- `tests/test_state.py`
+- Coverage emphasis is command parsing, SQL extraction robustness, policy refusal behavior, preview rendering, and persisted state handling.
 
-## What I would do differently next
-- Split `sql/executor.py` into smaller components (table registration, statement execution, write-back strategy).
-- Add integration tests for Excel round-trips and DML write-back correctness across multi-sheet workbooks.
-- Add stricter schema-aware safeguards before executing destructive statements.
-- Add structured error objects for user-facing explanations when SQL parsing/execution fails.
+## Future improvements
+- Split `sql/executor.py` into smaller units (registration, validation/rewrite, execution, write-back).
+- Add integration tests for Excel round-trips across multi-sheet workbooks.
+- Add richer schema-aware diagnostics for "table/column not found" cases.
+- Add structured user-facing error payloads for execution and validation failures.

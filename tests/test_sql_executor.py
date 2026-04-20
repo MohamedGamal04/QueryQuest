@@ -5,8 +5,11 @@ from queryquest.sql.executor import (
     _normalize_single_quoted_table_identifiers,
     _quote_known_identifiers,
     _rewrite_to_normalized_identifiers,
+    _validate_sql_allowlist,
     _strip_identifier_quotes,
+    execute_sql_statements,
 )
+from rich.console import Console
 
 
 class SqlExecutorNormalizationTests(unittest.TestCase):
@@ -90,6 +93,31 @@ class SqlExecutorNormalizationTests(unittest.TestCase):
         }
         prepared = _prepare_statement(statement, rewrite_context)
         self.assertEqual(prepared, "DELETE FROM Real_Estate_Listings WHERE Listing_ID IS NULL")
+
+    def test_validate_sql_allowlist_rejects_schema_changes(self) -> None:
+        self.assertEqual(_validate_sql_allowlist("CREATE TABLE x (id INT)"), "'CREATE' is not allowed")
+
+    def test_validate_sql_allowlist_rejects_multiple_statements(self) -> None:
+        self.assertEqual(
+            _validate_sql_allowlist("SELECT 1; DROP TABLE users"),
+            "multiple SQL statements are not allowed",
+        )
+
+    def test_validate_sql_allowlist_rejects_join(self) -> None:
+        self.assertEqual(
+            _validate_sql_allowlist("SELECT * FROM a JOIN b ON a.id = b.id"),
+            "'JOIN' is not allowed",
+        )
+
+    def test_execute_sql_statements_refuses_disallowed_sql(self) -> None:
+        console = Console(record=True)
+
+        execute_sql_statements(["DROP TABLE users"], console=console)
+
+        output = console.export_text()
+        self.assertIn("Refused", output)
+        self.assertIn("DROP", output)
+        self.assertNotIn("SQL statements to execute", output)
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,6 @@ QueryQuest is a Python CLI assistant that converts natural language requests int
 - Generate SQL from natural language prompts using an LLM
 - Preview SQL statements in table form before execution
 - Execute `SELECT`, `UPDATE`, `INSERT`, and `DELETE` via DuckDB
-- Preview join outputs with bounded row previews
 - Confirm before writing DML changes back to Excel files
 - Handle model responses with extra prose around JSON payloads
 

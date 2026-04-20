@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Callable
+from pathlib import Path
 
 from openai import APIConnectionError, AuthenticationError, NotFoundError, OpenAI, RateLimitError
 from openai.types.chat import ChatCompletionMessageParam
@@ -62,6 +63,7 @@ def run_chat_session(
 	initial_prompt: str,
 	system_prompt_provider: Callable[[], str],
 	excel_file_count_provider: Callable[[], int],
+	excel_dir: str | Path,
 ) -> None:
 	"""Run the interactive prompt loop and optionally execute generated SQL.
 
@@ -167,7 +169,7 @@ def run_chat_session(
 					console=console,
 				).strip()
 				if execute_choice.lower() in {"y", "yes"}:
-					expose_sql_statements(sql_statements, provider_name, model_name, console)
+					expose_sql_statements(sql_statements, provider_name, model_name, console, excel_dir=excel_dir)
 				else:
 					console.print("[yellow]Execution skipped.[/yellow] Continuing chat. Type [cyan]QQ -q[/cyan] to quit.")
 		except NotFoundError:

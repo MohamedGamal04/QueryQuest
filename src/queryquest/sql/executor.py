@@ -9,9 +9,7 @@ Flow:
 
 from __future__ import annotations
 
-import json
 import re
-import sys
 from pathlib import Path
 from typing import TypedDict
 
@@ -23,6 +21,9 @@ from rich.prompt import Prompt
 from ..config import EXCEL_DIR
 from ..excel.context import list_excel_files
 from .preview import print_dataframe_as_table, print_sql_statements_table
+
+
+ALLOWED_SQL_COMMANDS = {"select", "insert", "update", "delete"}
 
 
 class WorkbookRecord(TypedDict):
@@ -79,6 +80,53 @@ def _normalize_sql_statement(statement: str) -> str:
     return statement.replace("`", '"')
 
 
+def _strip_leading_sql_noise(statement: str) -> str:
+    """Remove leading whitespace and SQL comments before checking the command."""
+    text = statement.lstrip()
+
+    while text:
+        if text.startswith("--"):
+            newline_index = text.find("\n")
+            if newline_index == -1:
+                return ""
+            text = text[newline_index + 1 :].lstrip()
+            continue
+
+        if text.startswith("/*"):
+            end_index = text.find("*/", 2)
+            if end_index == -1:
+                return ""
+            text = text[end_index + 2 :].lstrip()
+            continue
+
+        break
+
+    return text
+
+
+def _validate_sql_allowlist(statement: str) -> str | None:
+    """Return an error message when a statement is outside the supported allowlist."""
+    stripped = _strip_leading_sql_noise(statement)
+    if not stripped:
+        return "empty SQL statement"
+
+    if ";" in stripped.rstrip().rstrip(";"):
+        return "multiple SQL statements are not allowed"
+
+    match = re.match(r"([A-Za-z]+)", stripped)
+    if not match:
+        return "unable to determine the SQL command"
+
+    keyword = match.group(1).lower()
+    if keyword not in ALLOWED_SQL_COMMANDS:
+        return f"'{keyword.upper()}' is not allowed"
+
+    if re.search(r"\bjoin\b", stripped, flags=re.IGNORECASE):
+        return "'JOIN' is not allowed"
+
+    return None
+
+
 def _canonical_identifier(value: str) -> str:
     """Return lowercase alphanumeric-only identifier for tolerant matching."""
     return re.sub(r"[^0-9A-Za-z]+", "", value).lower()
@@ -94,7 +142,7 @@ def _normalize_single_quoted_table_identifiers(statement: str, table_identifiers
             return f'{keyword} "{identifier}"'
         return match.group(0)
 
-    pattern = re.compile(r"\b(from|join|update|into|table)\s+'([^']+)'", flags=re.IGNORECASE)
+    pattern = re.compile(r"\b(from|update|into|table)\s+'([^']+)'", flags=re.IGNORECASE)
     return pattern.sub(_replace, statement)
 
 
@@ -123,7 +171,7 @@ def _rewrite_to_normalized_identifiers(
         return match.group(0)
 
     rewritten = re.sub(
-        r"\b(from|join|update|into|table)\s+([A-Za-z_][A-Za-z0-9_]*)",
+        r"\b(from|update|into|table)\s+([A-Za-z_][A-Za-z0-9_]*)",
         _replace_table_alias,
         rewritten,
         flags=re.IGNORECASE,
@@ -148,32 +196,6 @@ def _rewrite_to_normalized_identifiers(
     return rewritten
 
 
-def _normalize_city_join_comparisons(statement: str) -> str:
-    """Normalize city=city join predicates so values like "New York" and "New York City" can match."""
-
-    def _normalize_city_sql(token: str) -> str:
-        return f"replace(lower(trim(cast({token} as varchar))), ' city', '')"
-
-    def _replace(match: re.Match[str]) -> str:
-        left_alias = match.group(1)
-        left_col = match.group(2)
-        right_alias = match.group(3)
-        right_col = match.group(4)
-
-        if _canonical_identifier(left_col) != "city" or _canonical_identifier(right_col) != "city":
-            return match.group(0)
-
-        left_token = f"{left_alias}.{left_col}"
-        right_token = f"{right_alias}.{right_col}"
-        return f"{_normalize_city_sql(left_token)} = {_normalize_city_sql(right_token)}"
-
-    pattern = re.compile(
-        r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*(\"?[A-Za-z_][A-Za-z0-9_]*\"?)\s*=\s*([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*(\"?[A-Za-z_][A-Za-z0-9_]*\"?)",
-        flags=re.IGNORECASE,
-    )
-    return pattern.sub(_replace, statement)
-
-
 def _quote_known_identifiers(statement: str, identifiers: set[str]) -> str:
     """Quote known identifiers with spaces so DuckDB parses them correctly."""
     rewritten = statement
@@ -196,11 +218,6 @@ def _strip_identifier_quotes(identifier: str) -> str:
 def _is_dml_statement(statement: str) -> bool:
     """Check whether a statement mutates data and may require save confirmation."""
     return statement.lstrip().lower().startswith(("delete", "insert", "update"))
-
-
-def _is_join_statement(statement: str) -> bool:
-    """Check whether a SELECT uses JOIN to enable concise preview output."""
-    return bool(re.search(r"\bjoin\b", statement, flags=re.IGNORECASE))
 
 
 def _extract_target_table_name(statement: str) -> str | None:
@@ -250,12 +267,12 @@ def _delete_statement_to_scope_query(statement: str) -> str | None:
     return None
 
 
-def _print_delete_before_after_preview(
+def _print_delete_preview(
     connection: duckdb.DuckDBPyConnection,
     prepared_statement: str,
     console: Console,
 ) -> None:
-    """Show rows targeted by DELETE before execution and remaining rows after execution."""
+    """Show rows targeted by DELETE before execution."""
     scope_query = _delete_statement_to_scope_query(prepared_statement)
     if scope_query is None:
         return
@@ -271,7 +288,7 @@ def _print_delete_before_after_preview(
         before_df = connection.execute(
             limited_scope_query
         ).df()
-        console.print(f"[yellow]DELETE preview before:[/yellow] {before_count} row(s) match the filter.")
+        console.print(f"[yellow]Affected rows:[/yellow] {before_count} row(s) match the filter.")
 
         if before_count == 0:
             console.print("[yellow]DELETE skipped:[/yellow] no rows matched the filter.")
@@ -287,19 +304,6 @@ def _print_delete_before_after_preview(
     if cursor is None:
         return
 
-    try:
-        after_count_row = connection.execute(
-            f"SELECT COUNT(*) FROM ({scope_query}) AS remaining_scope"
-        ).fetchone()
-        after_count = int(after_count_row[0]) if after_count_row is not None else 0
-        after_df = connection.execute(
-            limited_scope_query
-        ).df()
-        console.print(f"[green]DELETE preview after:[/green] {after_count} row(s) still match the filter.")
-        print_dataframe_as_table(after_df, console, title=f"Rows remaining after delete ({table_name})")
-    except Exception as error:
-        console.print(f"[yellow]Could not render DELETE preview after execution:[/yellow] {error}")
-
 
 def _save_dataframe_to_workbook(file_path: Path, first_sheet_name: str, sheet_data: dict[str, pd.DataFrame], df: pd.DataFrame) -> None:
     """Rewrite workbook sheets, replacing only the first sheet content."""
@@ -307,13 +311,6 @@ def _save_dataframe_to_workbook(file_path: Path, first_sheet_name: str, sheet_da
         for current_sheet_name, current_df in sheet_data.items():
             data_to_write = df if current_sheet_name == first_sheet_name else current_df
             data_to_write.to_excel(writer, sheet_name=current_sheet_name, index=False)
-
-
-def read_sql_handoff_file(file_path: str) -> list[str]:
-    """Read SQL statements from the temporary JSON handoff file."""
-    with open(file_path, "r", encoding="utf-8") as file:
-        payload = json.loads(file.read())
-    return payload.get("sql_statements", [])
 
 
 def _print_sql_preview(sql_statements: list[str], console: Console) -> None:
@@ -344,7 +341,10 @@ def _execute_statement_safely(
         return None
 
 
-def _build_execution_context(connection: duckdb.DuckDBPyConnection) -> tuple[SqlRewriteContext, dict[str, WorkbookRecord]]:
+def _build_execution_context(
+    connection: duckdb.DuckDBPyConnection,
+    excel_dir: str | Path | None = None,
+) -> tuple[SqlRewriteContext, dict[str, WorkbookRecord]]:
     """Load workbooks with pandas, register DuckDB tables, and build rewrite mappings."""
     rewrite_context: SqlRewriteContext = {
         "table_identifiers": set(),
@@ -356,7 +356,8 @@ def _build_execution_context(connection: duckdb.DuckDBPyConnection) -> tuple[Sql
     }
     workbook_records: dict[str, WorkbookRecord] = {}
 
-    for file_path in list_excel_files(EXCEL_DIR):
+    selected_excel_dir = excel_dir if excel_dir is not None else EXCEL_DIR
+    for file_path in list_excel_files(selected_excel_dir):
         original_table_name = file_path.stem
         table_name = _table_name_from_file(file_path.name)
 
@@ -427,21 +428,34 @@ def _prepare_statement(statement: str, rewrite_context: SqlRewriteContext) -> st
         rewrite_context["column_name_map"],
         rewrite_context["column_alias_map"],
     )
-    rewritten = _normalize_city_join_comparisons(rewritten)
     return rewritten
 
 
-def execute_sql_statements(sql_statements: list[str], console: Console | None = None) -> None:
+def execute_sql_statements(
+    sql_statements: list[str],
+    console: Console | None = None,
+    excel_dir: str | Path | None = None,
+) -> None:
     """Execute SQL statements and optionally persist DML changes to Excel files."""
     active_console = console or Console()
     if not sql_statements:
         active_console.print("No SQL statements to execute.")
         return
 
+    for statement in sql_statements:
+        refusal_reason = _validate_sql_allowlist(statement)
+        if refusal_reason is not None:
+            active_console.print(
+                "[red]Refused:[/red] Only SELECT, INSERT, UPDATE, and DELETE statements are allowed. "
+                f"{refusal_reason}."
+            )
+            active_console.print(f"Skipped statement: {statement}")
+            return
+
     _print_sql_preview(sql_statements, active_console)
 
     connection = duckdb.connect()
-    rewrite_context, workbook_records = _build_execution_context(connection)
+    rewrite_context, workbook_records = _build_execution_context(connection, excel_dir=excel_dir)
 
     try:
         wrote_data = False
@@ -449,7 +463,7 @@ def execute_sql_statements(sql_statements: list[str], console: Console | None = 
             prepared_statement = _prepare_statement(statement, rewrite_context)
 
             if statement.lstrip().lower().startswith("delete"):
-                _print_delete_before_after_preview(connection, prepared_statement, active_console)
+                _print_delete_preview(connection, prepared_statement, active_console)
                 wrote_data = True
                 continue
 
@@ -466,13 +480,7 @@ def execute_sql_statements(sql_statements: list[str], console: Console | None = 
                 continue
 
             results = cursor.df()
-            if _is_join_statement(statement):
-                preview_df = results.head(20)
-                print_dataframe_as_table(preview_df, active_console, title="Query result (JOIN preview)")
-                if len(results) > len(preview_df):
-                    active_console.print(f"Showing first {len(preview_df)} of {len(results)} join rows.")
-            else:
-                print_dataframe_as_table(results, active_console)
+            print_dataframe_as_table(results, active_console)
 
         if not wrote_data:
             return

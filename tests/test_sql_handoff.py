@@ -38,7 +38,7 @@ class SqlHandoffTests(unittest.TestCase):
 
         expose_sql_statements(sql, provider="groq", model="llama", console=console)
 
-        mock_execute.assert_called_once_with(sql, console=console)
+        mock_execute.assert_called_once_with(sql, console=console, excel_dir=None)
         self.assertTrue(mock_log.called)
 
 
