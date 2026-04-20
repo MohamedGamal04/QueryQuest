@@ -16,9 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-queryquest = "queryquest.app:main"
-qq = "queryquest.app:main"
-QQ = "queryquest.app:main"
+qq = "queryquest.cli:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

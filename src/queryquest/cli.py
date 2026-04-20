@@ -134,3 +134,10 @@ def parse_args(argv: list[str], console: Console) -> CliOptions:
 		return parse_args([], console)
 
 	return CliOptions(setup=setup, prompt=prompt)
+
+
+def main() -> None:
+	"""Console entrypoint that delegates to the application bootstrap."""
+	from .app import main as app_main
+
+	app_main()

@@ -56,19 +56,15 @@ uv venv
 uv sync
 ```
 
+Alternative with pip (works well on Windows):
+```bash
+pip install -e .
+```
+
 3. Run the CLI:
 ```bash
 qq
 ```
-
-### Windows launcher
-If you are on Windows and running from the repository folder, you can use the included launcher:
-
-```bat
-qq
-```
-
-The launcher file is `qq.bat` at the repo root and forwards any arguments (for example `qq --setup`).
 
 ## Usage
 Setup provider/model credentials:
