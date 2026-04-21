@@ -97,7 +97,9 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 
 ## Data Expectations
 - Default workbook directory: `excel_files/`
-- QueryQuest currently loads the first sheet in each workbook for SQL table registration and write-back mapping.
+- QueryQuest registers every sheet as a SQL table using `workbook__sheet` naming.
+- Example: `inventory.xlsx` sheet `Archive Data` becomes table `inventory__Archive_Data`.
+- DML (`INSERT`/`UPDATE`/`DELETE`) writes back to the exact sheet targeted by the SQL statement.
 
 ## Notes
 - Logs are appended to `logs.txt`.

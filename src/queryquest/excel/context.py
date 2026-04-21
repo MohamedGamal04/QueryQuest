@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -11,6 +12,20 @@ import pandas as pd
 from ..config import EXCEL_DIR
 
 SUPPORTED_SUFFIXES = {".xlsx", ".xls"}
+
+
+def _table_name_from_file(file_name: str) -> str:
+	"""Normalize a workbook or sheet label into a SQL-safe identifier."""
+	stem = file_name.rsplit(".", 1)[0]
+	normalized = re.sub(r"[^0-9A-Za-z]+", "_", stem).strip("_")
+	return normalized or "excel_data"
+
+
+def _table_name_from_sheet(file_name: str, sheet_name: str) -> str:
+	"""Return the SQL table name used by the executor for one workbook sheet."""
+	workbook_part = _table_name_from_file(file_name)
+	sheet_part = _table_name_from_file(sheet_name)
+	return f"{workbook_part}__{sheet_part}"
 
 
 def normalize_excel_dir(excel_dir: str | Path | None = None) -> Path:
@@ -131,6 +146,7 @@ def build_excel_files_info(excel_dir: str | Path | None = None) -> tuple[str, st
 		for sheet_name in xls.sheet_names:
 			df = xls.parse(sheet_name)
 			sheet_sections.append(f"Sheet: {sheet_name}")
+			sheet_sections.append(f"SQL table: {_table_name_from_sheet(file_path.name, str(sheet_name))}")
 			sheet_sections.append(get_col_info(df))
 			sheet_sections.append(get_sample_rows(df))
 		sections.append("\n".join(sheet_sections))

@@ -66,5 +66,6 @@ Delete rows: DELETE FROM [table] WHERE [condition]
 Constraints:
 Strict Limits: Only use row-level SELECT, INSERT, UPDATE, DELETE.
 Never use JOIN, CREATE, ALTER, DROP, TRUNCATE, PRAGMA, ATTACH, DETACH, MERGE, or any schema-changing SQL.
+Table naming: Each workbook sheet is available as table `workbook__sheet` (normalized with underscores).
 Scope: Use ONLY available local data.
 Format: Output a JSON object only: {"sql_statements": ["..."], "explanation": "..."}. No prose outside the JSON."""

@@ -1,4 +1,9 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
+import pandas as pd
 
 from queryquest.sql.executor import (
     _build_update_change_predicate,
@@ -155,6 +160,31 @@ class SqlExecutorNormalizationTests(unittest.TestCase):
         self.assertIn("Refused", output)
         self.assertIn("DROP", output)
         self.assertNotIn("SQL statements to execute", output)
+
+    @patch("queryquest.sql.executor.Prompt.ask", return_value="y")
+    def test_execute_sql_statements_updates_non_first_sheet_and_saves(self, _mock_prompt) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            excel_path = Path(tmp_dir) / "inventory.xlsx"
+
+            current_df = pd.DataFrame({"Item": ["A", "B"], "Qty": [1, 2]})
+            archive_df = pd.DataFrame({"Item": ["A", "B"], "Qty": [10, 20]})
+
+            with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+                current_df.to_excel(writer, sheet_name="Current", index=False)
+                archive_df.to_excel(writer, sheet_name="Archive Data", index=False)
+
+            console = Console(record=True)
+            execute_sql_statements(
+                ["UPDATE inventory__Archive_Data SET Qty = 99 WHERE Item = 'A'"],
+                console=console,
+                excel_dir=tmp_dir,
+            )
+
+            reloaded = pd.read_excel(excel_path, sheet_name=None)
+            self.assertEqual(int(reloaded["Archive Data"].loc[0, "Qty"]), 99)
+            self.assertEqual(int(reloaded["Archive Data"].loc[1, "Qty"]), 20)
+            self.assertEqual(int(reloaded["Current"].loc[0, "Qty"]), 1)
+            self.assertEqual(int(reloaded["Current"].loc[1, "Qty"]), 2)
 
 if __name__ == "__main__":
     unittest.main()
