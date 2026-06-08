@@ -1,11 +1,13 @@
-"""Application entrypoint for QueryQuest."""
+"""Application entrypoint for QueryQuest.
+
+Author: mohamedgamal04
+"""
 
 import sys
 import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import OpenAI
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.panel import Panel
@@ -127,8 +129,6 @@ def main() -> None:
 			prompt_parts.append(excel_context)
 		return "\n\n".join(part for part in prompt_parts if part)
 
-	client = OpenAI(base_url=config.base_url, api_key=state["api_key"])
-
 	prompt, prompt_flag_only = normalize_prompt_input(options.prompt or "")
 	if prompt_flag_only:
 		CONSOLE.print("Please provide prompt text after -p/--prompt.")
@@ -147,10 +147,10 @@ def main() -> None:
 
 	run_chat_session(
 		console=CONSOLE,
-		client=client,
 		provider_name=config.name,
 		provider_base_url=config.base_url,
 		model_name=state["model"],
+		api_key=state["api_key"],
 		initial_prompt=prompt,
 		system_prompt_provider=get_system_prompt,
 		excel_file_count_provider=lambda: len(list_excel_files(excel_dir)),

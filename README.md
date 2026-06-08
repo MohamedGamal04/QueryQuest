@@ -9,8 +9,15 @@ QueryQuest is a Python CLI assistant that converts natural language requests int
 - Generate SQL from natural language prompts using an LLM
 - Preview SQL statements in table form before execution
 - Execute `SELECT`, `UPDATE`, `INSERT`, and `DELETE` via DuckDB
+- Join across sheets/workbooks in `SELECT` reads (`workbook__sheet` tables)
 - Confirm before writing DML changes back to Excel files
+- Enforce a hard SQL sandbox (no file-read functions, no admin/DDL, no comments or multi-statements)
 - Handle model responses with extra prose around JSON payloads
+
+## Architecture
+The natural-language-to-SQL logic lives in an async, prompt-free `QueryEngine`
+(`core/`) driven by an approval `Policy`. The CLI supplies an interactive policy;
+a future fully-agentic website can drive the same engine with `AutoApprovePolicy`.
 
 ## Supported Providers
 Configured via OpenAI-compatible chat APIs:
@@ -28,16 +35,32 @@ src/queryquest/
 	setup_flow.py        # Interactive provider/model/key setup
 	state.py             # Persisted setup and Excel context cache
 	logger.py            # JSON event logging
-	chat_session.py      # Prompt loop and LLM orchestration
+	chat_session.py      # Interactive CLI adapter over the engine
 	excel/context.py     # Excel discovery and context building
+	core/
+		engine.py          # Async, prompt-free QueryEngine orchestrator
+		models.py          # EngineConfig / EngineResult dataclasses
+		policy.py          # Approval policies (interactive / auto / deny)
+		llm.py             # Async provider access (AsyncOpenAI)
 	sql/
-		handoff.py         # JSON extraction + SQL handoff
-		executor.py        # SQL execution and Excel write-back
+		handoff.py         # JSON extraction from model output
+		validation.py      # SQL sandbox (allowlist, blocklist, table check)
+		rewrite.py         # Identifier rewriting (JOIN-aware)
+		registry.py        # Excel -> DuckDB registration
+		execution.py       # Statement execution + DELETE/UPDATE previews
+		writeback.py       # DML write-back to workbooks
+		executor.py        # Legacy interactive facade (compatibility)
 		preview.py         # Rich table rendering
 
 tests/
 	test_cli.py
+	test_core_engine.py
+	test_policy.py
+	test_sql_executor.py
 	test_sql_handoff.py
+	test_sql_preview.py
+	test_sql_rewrite_join.py
+	test_sql_validation.py
 	test_state.py
 ```
 
@@ -92,7 +115,7 @@ qq -h
 ## Testing
 Run tests from project root:
 ```bash
-PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v
 ```
 
 ## Data Expectations

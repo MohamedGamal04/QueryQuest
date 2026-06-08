@@ -1,4 +1,7 @@
-"""Parse model SQL JSON payloads and route statements to the SQL executor."""
+"""Parse model SQL JSON payloads and route statements to the SQL executor.
+
+Author: mohamedgamal04
+"""
 
 import json
 import re

@@ -1,17 +1,15 @@
 [project]
-name = "excelagent"
+name = "queryquest"
 version = "0.1.0"
-description = "Add your description here"
+description = "Natural-language to SQL assistant for Excel workbooks, backed by DuckDB."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "dotenv>=0.9.9",
     "duckdb>=1.5.2",
-    "google-generativeai>=0.8.6",
-    "ollama>=0.6.1",
     "openai>=2.32.0",
     "openpyxl>=3.1.5",
-    "pandas>=3.0.2",
+    "pandas>=3.0.2,<4",
     "rich>=14.1.0",
 ]
 

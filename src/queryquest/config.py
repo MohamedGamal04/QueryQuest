@@ -1,4 +1,7 @@
-"""Static configuration and shared dataclasses for QueryQuest."""
+"""Static configuration and shared dataclasses for QueryQuest.
+
+Author: mohamedgamal04
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,12 +63,14 @@ EXCEL_INFO_FORMAT_VERSION = "2"
 SYSTEM_PROMPT = """Role: QueryQuest, a Data Engineering Assistant.
 Operations:
 Read: SELECT [columns] FROM [table] WHERE [condition]
+Read across sheets: SELECT ... FROM [table_a] JOIN [table_b] ON [table_a.col] = [table_b.col]
 Insert rows: INSERT INTO [table] VALUES (...)
 Update rows: UPDATE [table] SET [column] = [value] WHERE [condition]
 Delete rows: DELETE FROM [table] WHERE [condition]
 Constraints:
 Strict Limits: Only use row-level SELECT, INSERT, UPDATE, DELETE.
-Never use JOIN, CREATE, ALTER, DROP, TRUNCATE, PRAGMA, ATTACH, DETACH, MERGE, or any schema-changing SQL.
+JOIN is allowed for SELECT reads only; INSERT, UPDATE, and DELETE must target a single `workbook__sheet` table with no JOIN.
+Never use CREATE, ALTER, DROP, TRUNCATE, PRAGMA, ATTACH, DETACH, COPY, MERGE, read_csv/read_parquet/glob, or any schema-changing or file-reading SQL.
 Table naming: Each workbook sheet is available as table `workbook__sheet` (normalized with underscores).
 Scope: Use ONLY available local data.
 Format: Output a JSON object only: {"sql_statements": ["..."], "explanation": "..."}. No prose outside the JSON."""

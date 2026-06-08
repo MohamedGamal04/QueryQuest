@@ -1,9 +1,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
 *.json
 *.txt
 .env
 .venv/
+.rtk/
+CLAUDE.md
 excel_files/
 uv.lock

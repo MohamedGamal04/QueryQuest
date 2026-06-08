@@ -112,9 +112,12 @@ class SqlExecutorNormalizationTests(unittest.TestCase):
             "multiple SQL statements are not allowed",
         )
 
-    def test_validate_sql_allowlist_rejects_join(self) -> None:
+    def test_validate_sql_allowlist_allows_select_join(self) -> None:
+        self.assertIsNone(_validate_sql_allowlist("SELECT * FROM a JOIN b ON a.id = b.id"))
+
+    def test_validate_sql_allowlist_rejects_join_in_dml(self) -> None:
         self.assertEqual(
-            _validate_sql_allowlist("SELECT * FROM a JOIN b ON a.id = b.id"),
+            _validate_sql_allowlist("UPDATE a SET x = 1 FROM b JOIN c ON b.id = c.id"),
             "'JOIN' is not allowed",
         )
 
