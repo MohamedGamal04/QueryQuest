@@ -90,6 +90,39 @@ class CoreEngineTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(target.preview_rows), 1)
             self.assertIn("price", target.preview_columns)
 
+    async def test_zero_row_update_offers_no_writeback(self) -> None:
+        with TemporaryDirectory() as raw_dir:
+            directory = Path(raw_dir)
+            path = self._make_workbook(directory)
+            engine = QueryEngine(_config(directory))
+
+            sql = "UPDATE listings SET price = 5 WHERE id = 999"  # matches nothing
+            with patch("queryquest.core.engine.generate_sql", new=_fake_llm([sql])):
+                result = await engine.run("noop", AutoApprovePolicy(directory))
+
+            self.assertTrue(result.executed)
+            self.assertEqual(result.statements[0].row_count, 0)
+            self.assertEqual(result.writeback_targets, [])
+            self.assertFalse(result.wrote_back)
+            saved = pd.read_excel(path)
+            self.assertEqual(sorted(saved["price"].tolist()), [10, 20])
+
+    async def test_insert_reports_affected_count_and_saves(self) -> None:
+        with TemporaryDirectory() as raw_dir:
+            directory = Path(raw_dir)
+            path = self._make_workbook(directory)
+            engine = QueryEngine(_config(directory))
+
+            sql = "INSERT INTO listings VALUES (3, 30)"
+            with patch("queryquest.core.engine.generate_sql", new=_fake_llm([sql])):
+                result = await engine.run("add a row", AutoApprovePolicy(directory))
+
+            self.assertEqual(result.statements[0].row_count, 1)  # not 0 despite DuckDB rowcount -1
+            self.assertTrue(result.wrote_back)
+            saved = pd.read_excel(path)
+            self.assertEqual(len(saved), 3)
+            self.assertIn(3, saved["id"].tolist())
+
     async def test_deny_all_skips_execution(self) -> None:
         with TemporaryDirectory() as raw_dir:
             directory = Path(raw_dir)

@@ -1,11 +1,11 @@
-"""Human-in-the-loop Chainlit prototype for QueryQuest.
+"""Human-in-the-loop / autonomous Chainlit prototype for QueryQuest.
 
 Run with:  uv run chainlit run chainlit_app.py
 
-Drives the same async QueryEngine the CLI uses. A ChainlitPolicy asks the user
-to confirm before running statements and again before saving DML changes —
-showing the rows about to change as an interactive Dataframe. SELECT results are
-rendered as Dataframe elements too.
+Drives the same async QueryEngine the CLI uses, using the provider/model from
+`.provider.json`. An Execution mode picker switches between human-in-the-loop
+(confirm before running and before saving, with a Dataframe preview of the rows
+about to change) and fully agentic (run + save automatically, sandbox-confined).
 
 Author: mohamedgamal04
 """
@@ -18,11 +18,12 @@ from pathlib import Path
 
 import chainlit as cl
 import pandas as pd
+from dotenv import load_dotenv
 
 from queryquest.config import EXCEL_DIR, PROVIDERS_BY_NAME, SYSTEM_PROMPT
 from queryquest.core.engine import QueryEngine
 from queryquest.core.models import EngineConfig, EngineResult, StatementResult, WritebackTarget
-from queryquest.core.policy import Policy
+from queryquest.core.policy import AutoApprovePolicy, Policy
 from queryquest.excel.context import (
     build_excel_files_info,
     format_excel_context,
@@ -30,6 +31,11 @@ from queryquest.excel.context import (
     normalize_excel_dir,
 )
 from queryquest.state import load_state
+
+load_dotenv()
+
+EXECUTION_HITL = "hitl"
+EXECUTION_AUTO = "auto"
 
 
 def _resolve_excel_dir(state: dict[str, str]) -> Path:
@@ -47,6 +53,16 @@ def _build_system_prompt(excel_dir: Path) -> str:
     info, _signature, _snapshot = build_excel_files_info(excel_dir)
     context = format_excel_context(info)
     return f"{SYSTEM_PROMPT}\n\n{context}" if context else SYSTEM_PROMPT
+
+
+def _selected_mode(message: cl.Message, mode_id: str, default: str) -> str:
+    """Read the chosen option id for a mode from an incoming message."""
+    modes = getattr(message, "modes", None) or {}
+    value = modes.get(mode_id)
+    if value is None:
+        return default
+    # The value may be an option id string or a ModeOption-like object.
+    return getattr(value, "id", value)
 
 
 async def _confirm(question: str, yes_label: str, no_label: str) -> bool:
@@ -138,7 +154,7 @@ async def _send_result(result: EngineResult) -> None:
 
 @cl.on_chat_start
 async def on_chat_start() -> None:
-    """Load provider config and wire one engine per chat session."""
+    """Build the engine config from .provider.json and register the Execution picker."""
     state = load_state()
     if state is None:
         await cl.Message(content="No provider configured. Run `uv run qq --setup` first, then reload.").send()
@@ -155,28 +171,53 @@ async def on_chat_start() -> None:
         excel_dir=excel_dir,
         excel_files_count=len(list_excel_files(excel_dir)),
     )
+    cl.user_session.set("config", config)
+    cl.user_session.set("excel_dir", excel_dir)
 
-    cl.user_session.set("engine", QueryEngine(config))
-    cl.user_session.set("policy", ChainlitPolicy())
+    await cl.context.emitter.set_modes(
+        [
+            cl.Mode(
+                id="execution",
+                name="Execution",
+                options=[
+                    cl.ModeOption(
+                        id=EXECUTION_HITL,
+                        name="Human-in-the-loop",
+                        description="Confirm before running and before saving",
+                        default=True,
+                    ),
+                    cl.ModeOption(
+                        id=EXECUTION_AUTO,
+                        name="Fully agentic",
+                        description="Run and save automatically — sandbox-confined",
+                    ),
+                ],
+            )
+        ]
+    )
 
     await cl.Message(
         content=(
-            f"**QueryQuest** is ready.\n\n"
+            "**QueryQuest** is ready.\n\n"
             f"- Provider: `{provider.name}` · Model: `{state['model']}`\n"
-            f"- Workbooks: `{excel_dir}` ({config.excel_files_count} file(s))\n\n"
-            "You'll be asked to confirm before statements run, and again before any changes are saved."
+            f"- Workbooks: `{excel_dir}` ({config.excel_files_count} file(s))\n"
+            "- Pick an **Execution** mode below the composer: human-in-the-loop confirms each step; "
+            "fully agentic runs and saves on its own."
         )
     ).send()
 
 
 @cl.on_message
 async def on_message(message: cl.Message) -> None:
-    """Run the user's request through the engine and render the result."""
-    engine: QueryEngine | None = cl.user_session.get("engine")
-    policy = cl.user_session.get("policy")
-    if engine is None or policy is None:
+    """Run the user's request through the engine under the chosen execution mode."""
+    config: EngineConfig | None = cl.user_session.get("config")
+    excel_dir = cl.user_session.get("excel_dir")
+    if config is None or excel_dir is None:
         await cl.Message(content="Engine not initialized. Reload the chat after running `qq --setup`.").send()
         return
 
-    result = await engine.run(message.content, policy)
+    execution = _selected_mode(message, "execution", EXECUTION_HITL)
+    policy: Policy = AutoApprovePolicy(excel_dir) if execution == EXECUTION_AUTO else ChainlitPolicy()
+
+    result = await QueryEngine(config).run(message.content, policy)
     await _send_result(result)

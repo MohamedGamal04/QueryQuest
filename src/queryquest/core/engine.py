@@ -37,6 +37,14 @@ def _classify(sql: str) -> str:
     return word.lower() or "unknown"
 
 
+def _table_row_count(connection: duckdb.DuckDBPyConnection, table_name: str | None) -> int:
+    """Return the row count of a registered table, or 0 when unknown."""
+    if not table_name:
+        return 0
+    row = connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+    return int(row[0]) if row is not None else 0
+
+
 def _scope_preview(
     connection: duckdb.DuckDBPyConnection,
     prepared: str,
@@ -125,16 +133,25 @@ def _run_sql_session(
                     affected, preview_columns, preview_rows = _scope_preview(connection, prepared, result.kind)
                     connection.execute(prepared)
                     result.row_count = affected
-                    target = _writeback_target(records, prepared, affected, preview_columns, preview_rows)
-                    if target is not None:
-                        pairs.append((result, target))
+                    # Nothing changed -> no write-back to confirm or persist.
+                    if affected > 0:
+                        target = _writeback_target(records, prepared, affected, preview_columns, preview_rows)
+                        if target is not None:
+                            pairs.append((result, target))
                 elif result.kind == "insert":
-                    cursor = connection.execute(prepared)
-                    affected = cursor.rowcount if cursor.rowcount and cursor.rowcount > 0 else 0
+                    # DuckDB reports rowcount -1 for INSERT, so count rows around it.
+                    name = _extract_target_table_name(prepared)
+                    record = records.get(str(name)) if name is not None else None
+                    table = record["table_name"] if record is not None else None
+                    before = _table_row_count(connection, table)
+                    connection.execute(prepared)
+                    after = _table_row_count(connection, table)
+                    affected = max(after - before, 0)
                     result.row_count = affected
-                    target = _writeback_target(records, prepared, affected)
-                    if target is not None:
-                        pairs.append((result, target))
+                    if affected > 0:
+                        target = _writeback_target(records, prepared, affected)
+                        if target is not None:
+                            pairs.append((result, target))
                 else:
                     result.error = "unsupported statement"
             except Exception as error:  # Keep one bad statement from sinking the run.
