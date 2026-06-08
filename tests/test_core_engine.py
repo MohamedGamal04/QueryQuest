@@ -84,6 +84,11 @@ class CoreEngineTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(result.wrote_back)
             saved = pd.read_excel(path)
             self.assertEqual(int(saved.loc[saved["id"] == 1, "price"].iloc[0]), 99)
+            # The write-back target carries a preview of the rows about to change.
+            target = result.writeback_targets[0]
+            self.assertEqual(target.affected_rows, 1)
+            self.assertEqual(len(target.preview_rows), 1)
+            self.assertIn("price", target.preview_columns)
 
     async def test_deny_all_skips_execution(self) -> None:
         with TemporaryDirectory() as raw_dir:

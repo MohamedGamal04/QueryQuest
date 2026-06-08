@@ -112,6 +112,18 @@ Show help:
 qq -h
 ```
 
+## Web (autonomous prototype)
+A Chainlit chat UI that drives the same engine with **no human approval** —
+statements run automatically and DML is saved back to your workbooks (the SQL
+sandbox is the safety boundary). Configure a provider first with `qq --setup`.
+```bash
+uv run chainlit run chainlit_app.py
+```
+Point it at a workbook directory with `QQ_EXCEL_DIR` (defaults to `excel_files/`):
+```bash
+QQ_EXCEL_DIR=/path/to/workbooks uv run chainlit run chainlit_app.py
+```
+
 ## Testing
 Run tests from project root:
 ```bash

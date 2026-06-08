@@ -37,23 +37,37 @@ def _classify(sql: str) -> str:
     return word.lower() or "unknown"
 
 
-def _affected_row_count(connection: duckdb.DuckDBPyConnection, prepared: str, kind: str) -> int:
-    """Count rows a DELETE/UPDATE will touch, before executing it."""
+def _scope_preview(
+    connection: duckdb.DuckDBPyConnection,
+    prepared: str,
+    kind: str,
+) -> tuple[int, list[str], list[dict]]:
+    """Count and sample the rows a DELETE/UPDATE will touch, before executing it.
+
+    For UPDATE the scope is the rows whose values actually change; for DELETE it
+    is the rows that will be removed. Must run before the statement executes.
+    """
     scope = (
         _delete_statement_to_scope_query(prepared)
         if kind == "delete"
         else _update_statement_to_scope_query(prepared)
     )
     if scope is None:
-        return 0
+        return 0, [], []
     row = connection.execute(f"SELECT COUNT(*) FROM ({scope}) AS _scope").fetchone()
-    return int(row[0]) if row is not None else 0
+    count = int(row[0]) if row is not None else 0
+    if count == 0:
+        return 0, [], []
+    dataframe = connection.execute(f"SELECT * FROM ({scope}) AS _scope LIMIT {PREVIEW_ROWS}").df()
+    return count, [str(column) for column in dataframe.columns], dataframe.to_dict("records")
 
 
 def _writeback_target(
     records: dict[str, WorkbookRecord],
     prepared: str,
     affected: int,
+    preview_columns: list[str] | None = None,
+    preview_rows: list[dict] | None = None,
 ) -> WritebackTarget | None:
     """Resolve the single sheet a DML statement persists into."""
     name = _extract_target_table_name(prepared)
@@ -67,6 +81,8 @@ def _writeback_target(
         sheet_name=record["sheet_name"],
         table_name=record["table_name"],
         affected_rows=affected,
+        preview_columns=preview_columns or [],
+        preview_rows=preview_rows or [],
     )
 
 
@@ -106,10 +122,10 @@ def _run_sql_session(
                     result.row_count = len(dataframe)
                     result.truncated = len(dataframe) > len(head)
                 elif result.kind in {"update", "delete"}:
-                    affected = _affected_row_count(connection, prepared, result.kind)
+                    affected, preview_columns, preview_rows = _scope_preview(connection, prepared, result.kind)
                     connection.execute(prepared)
                     result.row_count = affected
-                    target = _writeback_target(records, prepared, affected)
+                    target = _writeback_target(records, prepared, affected, preview_columns, preview_rows)
                     if target is not None:
                         pairs.append((result, target))
                 elif result.kind == "insert":

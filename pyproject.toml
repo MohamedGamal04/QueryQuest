@@ -5,6 +5,7 @@ description = "Natural-language to SQL assistant for Excel workbooks, backed by 
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "chainlit>=2.11.1",
     "dotenv>=0.9.9",
     "duckdb>=1.5.2",
     "openai>=2.32.0",

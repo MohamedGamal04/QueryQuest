@@ -47,6 +47,8 @@ class WritebackTarget:
     sheet_name: str
     table_name: str
     affected_rows: int
+    preview_columns: list[str] = field(default_factory=list)
+    preview_rows: list[dict] = field(default_factory=list)
 
 
 @dataclass
