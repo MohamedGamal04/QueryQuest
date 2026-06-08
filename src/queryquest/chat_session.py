@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -118,6 +119,17 @@ def _render_result(console: Console, result: EngineResult, provider_name: str, m
             print_dataframe_as_table(dataframe, console)
             if statement.truncated:
                 console.print(f"Showing first {len(statement.rows)} of {statement.row_count} rows.")
+            elif statement.row_count == 0:
+                if re.search(r"\bjoin\b", statement.sql, flags=re.IGNORECASE):
+                    console.print(
+                        "[yellow]The join matched no rows.[/yellow] The two sheets may not share a "
+                        "matching key column, so there is nothing to join on."
+                    )
+                else:
+                    console.print(
+                        "[yellow]The query ran successfully but matched no rows.[/yellow] "
+                        "Check the filter or column values."
+                    )
         else:
             console.print(f"[green]{statement.kind.upper()}[/green] affected {statement.row_count} row(s).")
 
