@@ -1,3 +1,13 @@
+---
+title: QueryQuest
+emoji: 📊
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # QueryQuest
 
 QueryQuest is a Python CLI assistant that converts natural language requests into SQL queries and executes them against Excel workbooks.
@@ -112,16 +122,38 @@ Show help:
 qq -h
 ```
 
-## Web (autonomous prototype)
-A Chainlit chat UI that drives the same engine with **no human approval** —
-statements run automatically and DML is saved back to your workbooks (the SQL
-sandbox is the safety boundary). Configure a provider first with `qq --setup`.
+## Web (Chainlit prototype)
+A Chainlit chat UI that drives the same async `QueryEngine`. Configure a
+provider first with `qq --setup`, then launch:
 ```bash
 uv run chainlit run chainlit_app.py
 ```
-Point it at a workbook directory with `QQ_EXCEL_DIR` (defaults to `excel_files/`):
+Open http://localhost:8000. How it works:
+- **Attach your data** — the app works only on files you attach via the 📎 icon
+  (`.xlsx`/`.xls`). They are copied into a per-session temp directory, so your
+  originals are never modified. Attachments accumulate across messages.
+- **Execution mode** (picker below the composer):
+  - *Human-in-the-loop* — confirm before statements run, preview the rows a
+    DML statement will change as a table, then confirm again before saving.
+  - *Fully agentic* — runs and saves automatically; the SQL sandbox is the
+    only safety boundary.
+- **Results** render as interactive Dataframe elements; SELECT JOINs across
+  attached sheets are supported.
+- **Download** — after an UPDATE/DELETE is saved, you get a link to download
+  the edited workbook.
+
+### Deploy to Hugging Face Spaces
+The repo is ready to run as a **Docker** Space (the YAML header in this README
+sets `sdk: docker`, `app_port: 7860`). No server-side API key is stored — each
+visitor brings their own:
+1. Create a new Space → **Docker** → blank, then push this repo (or duplicate it).
+2. The included [`Dockerfile`](Dockerfile) builds the app and serves it on port 7860.
+3. On first message, the app asks each user to pick a provider and paste **their
+   own API key** (kept only for that session). No shared key, so no cost to you.
+
+Locally the Docker image runs the same way:
 ```bash
-QQ_EXCEL_DIR=/path/to/workbooks uv run chainlit run chainlit_app.py
+docker build -t queryquest . && docker run -p 7860:7860 queryquest
 ```
 
 ## Testing

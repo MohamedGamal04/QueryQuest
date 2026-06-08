@@ -11,5 +11,7 @@ __pycache__/
 .files/
 chainlit.md
 CLAUDE.md
+DECISIONS.md
+docs/
 excel_files/
 uv.lock
