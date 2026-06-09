@@ -1,13 +1,3 @@
----
-title: QueryQuest
-emoji: 📊
-colorFrom: indigo
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # QueryQuest
 
 QueryQuest is a Python CLI assistant that converts natural language requests into SQL queries and executes them against Excel workbooks.
