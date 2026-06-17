@@ -118,7 +118,7 @@ provider first with `qq --setup`, then launch:
 ```bash
 uv run chainlit run chainlit_app.py
 ```
-Open http://localhost:8000. How it works:
+Open https://huggingface.co/spaces/mohamedgamal04/QueryQuest. How it works:
 - **Attach your data** — the app works only on files you attach via the 📎 icon
   (`.xlsx`/`.xls`). They are copied into a per-session temp directory, so your
   originals are never modified. Attachments accumulate across messages.
